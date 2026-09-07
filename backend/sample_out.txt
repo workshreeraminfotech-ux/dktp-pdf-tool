@@ -1,0 +1,46 @@
+```json
+[
+  {
+    "page_number": 4,
+    "deviation": "Tag‑naming inconsistency for AI pressure sensor",
+    "deviation_description": "The drawing lists the pressure sensor tag as **U10PAI:AI287407** while the DCS master configuration uses the convention **U10PAI_AI_287407** (underscore between subsystem and tag type). This mismatch will prevent the DCS from recognizing the point and will cause a “Tag not found” alarm on startup.",
+    "deviation_solution": "Rename the tag in the drawing (and any associated documentation) to **U10PAI_AI_287407** and update the DCS tag database to match. Verify that the tag description, engineering units and alarm limits are also aligned."
+  },
+  {
+    "page_number": 4,
+    "deviation": "Missing high‑limit alarm definition for RI01",
+    "deviation_description": "The alarm **RI01 PRESSURE V HIGH** is shown on the drawing, but the DCS master config does not contain a high‑limit set‑point or dead‑band for this alarm. Without a defined limit the alarm will never trip, defeating the safety function.",
+    "deviation_solution": "Add a high‑limit set‑point (e.g., 1.2 MPa) and an appropriate dead‑band to the DCS alarm configuration for tag **RI01**. Document the limit in the P&ID and update the alarm‑logic matrix."
+  },
+  {
+    "page_number": 4,
+    "deviation": "Feedback signal BI06 not linked to command output",
+    "deviation_description": "The drawing shows **BI06 ACWP‑2DISCHARGE VALVE OPEN FEEDBACK**, but there is no corresponding command output (BO) that drives the valve. The DCS master logic expects a command tag **BO06** to be paired with the feedback for proper interlock handling.",
+    "deviation_solution": "Create a command output tag **BO06 ACWP‑2DISCHARGE VALVE OPEN CMD** and link it to the valve actuator. Update the interlock logic so that the valve can only be opened when the command is active and the feedback is true. Reflect this change on the drawing and in the control narrative."
+  },
+  {
+    "page_number": 4,
+    "deviation": "Typographical error in discharge‑valve alarm text",
+    "deviation_description": "The alarm text **“ACWP‑2ONDON120S DISCHARGEVALVE NOTOPEN”** contains a typo (“ONDON” instead of “ON” and missing space). This will cause the generated alarm message to be unreadable for operators and may be rejected by the DCS alarm‑display module.",
+    "deviation_solution": "Correct the alarm description to **“ACWP‑2 ON 120 s DISCHARGE VALVE NOT OPEN”** on the drawing, in the DCS alarm database, and in the operator‑interface screen. Perform a consistency check for all alarm messages."
+  },
+  {
+    "page_number": 4,
+    "deviation": "Undefined parameter M06=1300??",
+    "deviation_description": "The drawing lists **M06=1300??** without a unit, description, or reference to a DCS tag. The master configuration has no parameter M06, which creates ambiguity for set‑point configuration and may lead to incorrect control action.",
+    "deviation_solution": "Clarify the purpose of M06 (e.g., “Maximum inlet flow set‑point”) and assign a proper tag name (e.g., **U10PAI_AI_1300**) with units (e.g., **kg/h**). Add the tag to the DCS database and update the drawing and control logic accordingly."
+  },
+  {
+    "page_number": 4,
+    "deviation": "Spelling/format errors in BO06 alarm description",
+    "deviation_description": "The alarm **BO06 RI02 HEADER FLOW ACW 2 ON RUNNING ,INLET HEAFER FLOW LOW** contains misspellings (“HEAFER” instead of “HEADER”) and inconsistent punctuation, which can cause mis‑interpretation by operators and may not match the alarm name defined in the DCS (which uses **HEADER_FLOW_LOW**).",
+    "deviation_solution": "Revise the alarm description to **“BO06 RI02 HEADER FLOW ACW‑2 ON – INLET HEADER FLOW LOW”**. Ensure the alarm name in the DCS matches this description and update the drawing, alarm‑logic matrix, and operator‑interface screens."
+  },
+  {
+    "page_number": 4,
+    "deviation": "Unclear protection alarm BO08 D PROTECT 2%O0MW",
+    "deviation_description": "The alarm **BO08 D PROTECT 2%O0MW** appears garbled (\"2%O0MW\" is not a valid unit). The DCS master config has a protection alarm for **BO08** defined as **“POWER LOSS > 2 %”** with a unit of **%**. The mismatch will prevent the alarm from being triggered correctly.",
+    "deviation_solution": "Replace the alarm text with **“BO08 POWER LOSS > 2 %”** and ensure the alarm limit is set to 2 % in the DCS. Update the drawing, the alarm‑logic documentation, and the HMI screen to reflect the corrected description and unit."
+  }
+]
+```

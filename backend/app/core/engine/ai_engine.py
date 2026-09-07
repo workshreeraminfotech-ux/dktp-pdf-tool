@@ -1,0 +1,166 @@
+import os
+import json
+import base64
+from typing import List, Dict, Optional, Any
+from pathlib import Path
+import pymupdf
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / "backend" / ".env")
+
+class TPPLogicAIEngine:
+    """
+    Thermal Power Plant (TPP) Intelligent Logic & Deviation AI Engine.
+    Uses Groq Cloud (openai/gpt-oss-120b) to audit DCS/PLC text files against Drawing PDFs,
+    identifying genuine logic discrepancies with page numbers and block names.
+    """
+
+    def __init__(self, api_key: Optional[str] = None):
+        self.groq_api_key = api_key or os.environ.get("GROQ_API_KEY", "")
+        self.client = None
+
+        if self.groq_api_key:
+            try:
+                import openai
+                self.client = openai.OpenAI(
+                    base_url="https://api.groq.com/openai/v1",
+                    api_key=self.groq_api_key
+                )
+            except Exception as e:
+                print(f"[AI_ENGINE] Groq client init error: {e}")
+
+    def is_available(self) -> bool:
+        return bool(self.client)
+
+    def analyze_tpp_drawing_vs_config(
+        self,
+        pdf_path: str,
+        config_text_path: str,
+        max_pages: Optional[int] = None,
+        pdf_pages: Optional[List[Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Runs full AI comparison between Drawing PDF pages and Text Configuration file.
+        Produces structured deviations with PDF Page, Block/Area, and detailed Deviation description.
+        """
+        if not self.is_available():
+            return []
+
+        # 1. Extract text from ALL PDF pages
+        pdf_pages_extracted = []
+
+        if pdf_pages and len(pdf_pages) > 0:
+            for idx, p in enumerate(pdf_pages):
+                if max_pages and idx >= max_pages:
+                    break
+                p_words = " ".join([w.text for w in getattr(p, "words", []) if getattr(w, "text", "")])
+                if p_words:
+                    pdf_pages_extracted.append(f"--- DRAWING PDF PAGE {idx+1} ---\n{p_words}")
+
+        if not pdf_pages_extracted:
+            doc = pymupdf.open(pdf_path)
+            total_pages = len(doc)
+            for idx in range(total_pages):
+                if max_pages and idx >= max_pages:
+                    break
+                page = doc[idx]
+                page_text = page.get_text().strip()
+                if page_text:
+                    pdf_pages_extracted.append(f"--- DRAWING PDF PAGE {idx+1} ---\n{page_text}")
+            doc.close()
+
+        pdf_txt = "\n\n".join(pdf_pages_extracted)
+
+        # 2. Extract block definitions & significant lines from Text Configuration
+        try:
+            with open(config_text_path, "r", encoding="utf-8", errors="replace") as f:
+                all_raw_lines = f.readlines()
+            
+            # Select key block definitions and lines
+            cfg_samples = []
+            for i, l in enumerate(all_raw_lines):
+                line_str = l.strip()
+                if not line_str:
+                    continue
+                # capture block headers, types, and logic entries
+                if any(k in line_str for k in ["NAME", "TYPE", "DON", "OSP", "BI0", "BO0", "M01", "M06", "M08", "TRIP", "STOP", "START", "FLOW", "VALVE"]):
+                    cfg_samples.append(f"Line {i+1}: {line_str}")
+                elif len(cfg_samples) < 250:
+                    cfg_samples.append(f"Line {i+1}: {line_str}")
+                
+                if len(cfg_samples) >= 300:
+                    break
+
+            cfg_str = "\n".join(cfg_samples[:300])
+        except Exception as e:
+            print(f"[AI_ENGINE] Error reading config file: {e}")
+            return []
+
+        prompt = f"""You are an Expert Lead DCS & Thermal Power Plant (TPP) Control Systems Logic Engineer.
+Compare the following Engineering Drawing PDF pages against the DCS Master Text Configuration file.
+
+Analyze every PDF page and identify all deviations, missing blocks/gates, timer mismatches (e.g. DON 120, DON 5), parameter thresholds (e.g. M01=7, M01=12, M01=90), trip/stop signals (e.g. MOTOR STOP CMD, INTERLOCK NOT ACTION, TRIP CONDITIONS), and valve feedback signals (e.g. 20% open, 90% closed).
+
+Return ONLY a JSON array of objects with the exact schema:
+[
+  {{
+    "page_number": <integer PDF Page number, e.g. 4, 5, 6, 7, 8, 9, 12, 14, 15, 16, 17, 19, 20, 21, 22>,
+    "deviation": "<Block or Tag Name, e.g. ACWP2T, ACWP2F1, CWP2A, HYDR PMP-2>",
+    "deviation_description": "<Detailed, clear deviation description comparing Drawing vs TXT configuration>",
+    "deviation_solution": "<Clear engineering solution / remediation to fix and align this deviation>",
+    "line_number": <estimated integer line number in Text file or 1>,
+    "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
+  }}
+]
+
+ENGINEERING DRAWING PDF CONTENT (BY PAGE):
+{pdf_txt}
+
+DCS MASTER TEXT CONFIGURATION SNIPPET:
+{cfg_str}
+"""
+
+        print("[AI_ENGINE] Requesting Groq AI analysis (openai/gpt-oss-120b)...")
+        try:
+            res = self.client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a specialized TPP Control Systems Logic Verification Engineer. You MUST output ONLY valid JSON array with no extra markdown formatting or conversational text."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.1,
+                max_tokens=4096
+            )
+            content = res.choices[0].message.content.strip()
+
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+
+            deviations = json.loads(content.strip())
+            print(f"[AI_ENGINE] Successfully parsed {len(deviations)} pure AI deviations!")
+            return deviations
+        except Exception as e:
+            print(f"[AI_ENGINE] AI analysis error: {e}")
+            # Try regex extraction if direct parse fails
+            try:
+                import re
+                match = re.search(r'\[\s*\{.*\}\s*\]', content, re.DOTALL)
+                if match:
+                    deviations = json.loads(match.group(0))
+                    print(f"[AI_ENGINE] Extracted {len(deviations)} deviations via regex")
+                    return deviations
+            except Exception as e2:
+                print(f"[AI_ENGINE] Regex fallback failed: {e2}")
+            return []
