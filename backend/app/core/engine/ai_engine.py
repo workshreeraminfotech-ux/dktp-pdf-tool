@@ -14,7 +14,7 @@ load_dotenv(BASE_DIR / "backend" / ".env")
 class TPPLogicAIEngine:
     """
     Thermal Power Plant (TPP) Intelligent Logic & Deviation AI Engine.
-    Uses Groq Cloud LLMs (llama-3.3-70b-versatile / gpt-oss-120b) to audit DCS/PLC text files against Drawing PDFs,
+    Uses Groq Cloud LLMs (openai/gpt-oss-120b) to audit DCS/PLC text files against Drawing PDFs,
     identifying genuine logic discrepancies with page numbers and block names.
     """
 
@@ -28,7 +28,7 @@ class TPPLogicAIEngine:
                 self.client = openai.OpenAI(
                     base_url="https://api.groq.com/openai/v1",
                     api_key=self.groq_api_key,
-                    timeout=35.0
+                    timeout=30.0
                 )
             except Exception as e:
                 print(f"[AI_ENGINE] Groq client init error: {e}")
@@ -60,7 +60,7 @@ class TPPLogicAIEngine:
                     break
                 p_words = " ".join([w.text for w in getattr(p, "words", []) if getattr(w, "text", "")])
                 if p_words:
-                    pdf_pages_extracted.append(f"--- DRAWING PDF PAGE {idx+1} ---\n{p_words[:600]}")
+                    pdf_pages_extracted.append(f"--- DRAWING PDF PAGE {idx+1} ---\n{p_words[:500]}")
 
         if not pdf_pages_extracted:
             try:
@@ -72,7 +72,7 @@ class TPPLogicAIEngine:
                     page = doc[idx]
                     page_text = page.get_text().strip()
                     if page_text:
-                        pdf_pages_extracted.append(f"--- DRAWING PDF PAGE {idx+1} ---\n{page_text[:600]}")
+                        pdf_pages_extracted.append(f"--- DRAWING PDF PAGE {idx+1} ---\n{page_text[:500]}")
                 doc.close()
             except Exception as e:
                 print(f"[AI_ENGINE] Error opening PDF: {e}")
@@ -126,7 +126,8 @@ DCS MASTER TEXT CONFIGURATION SNIPPET:
 {cfg_str}
 """
 
-        models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "openai/gpt-oss-120b"]
+        # Primary model is openai/gpt-oss-120b which is validated and supported
+        models_to_try = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "llama3-70b-8192"]
         
         for model_name in models_to_try:
             content = ""

@@ -96,9 +96,9 @@ class PDFUnderstandingEngine:
         words_list: List[PDFWord] = []
         full_text_lines: List[str] = []
 
-        if is_scanned and HAS_RAPID_OCR and ocr_engine and page_num <= 5:
-            # Render page to image with optimized scaling (0.65x) for ultra-fast OCR (~45 DPI)
-            zoom = 0.65
+        if is_scanned and HAS_RAPID_OCR and ocr_engine and page_num <= 2:
+            # Render page to image with optimized scaling (0.5x) for ultra-fast OCR
+            zoom = 0.5
             mat = pymupdf.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
             img_bytes = pix.tobytes("png")

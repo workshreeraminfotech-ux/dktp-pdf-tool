@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import pymupdf
 import numpy as np
 from PIL import Image

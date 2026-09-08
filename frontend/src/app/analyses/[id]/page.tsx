@@ -139,21 +139,45 @@ export default function CleanAnalysisWorkspace() {
     }
   };
 
-  // Loading state
+  // Loading state with real-time pipeline stages
   if (isLoading || (analysis && (analysis.status === 'QUEUED' || analysis.status === 'PROCESSING'))) {
+    const stages = analysis?.stages || [];
+    const activeStage = stages.find((s) => s.status === 'in_progress') || stages[0];
+    const completedCount = stages.filter((s) => s.status === 'completed').length;
+    const progressPercent = stages.length > 0 ? Math.round((completedCount / stages.length) * 100) : 15;
+
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center p-6">
-        <div className="text-center max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-xl">
+        <div className="text-center max-w-lg w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl">
           <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <h3 className="text-base font-bold text-slate-900 mb-2">
-            AI Engine is Auditing PDF & Logic Files...
+          <h3 className="text-base font-bold text-slate-900 mb-1">
+            AI Logic Audit in Progress...
           </h3>
-          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-            Cross-checking logic block interlocks, parameters, timer specifications (DON/TOF), and signal routing.
+          <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+            {activeStage?.description || 'Cross-checking engineering drawing blocks, timers, and DCS signals...'}
           </p>
-          <div className="inline-flex items-center space-x-2 text-xs text-blue-700 font-semibold bg-blue-50 px-3.5 py-1.5 rounded-lg border border-blue-200">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
-            <span>Building Deviation Master Table...</span>
+
+          {/* Real-time Progress Bar */}
+          <div className="w-full bg-slate-100 rounded-full h-2.5 mb-3 overflow-hidden border border-slate-200">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${Math.max(10, progressPercent)}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-500 font-semibold mb-6">
+            <span>{activeStage?.details || 'Processing pipeline...'}</span>
+            <span>{Math.max(10, progressPercent)}%</span>
+          </div>
+
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-left space-y-1.5 text-xs text-slate-700">
+            <div className="flex items-center space-x-2 text-blue-900 font-bold">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+              <span>Pipeline Stage Active</span>
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Analyzing logic gates, setpoint thresholds, timer parameters (DON/TOF), and creating highlighted deviation table.
+            </p>
           </div>
         </div>
       </div>
